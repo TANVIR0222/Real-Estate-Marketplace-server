@@ -11,8 +11,7 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-mongoose
-  .connect(process.env.MONGODB)
+mongoose.connect(process.env.DB)
   .then(() => console.log("mongoBD"))
   .catch((error) => console.log(error));
 
