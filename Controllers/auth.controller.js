@@ -2,7 +2,8 @@ import bcryptjs from "bcryptjs";
 import User from "../Model/user.model.js";
 import { errorHandler } from "../utils/error.js";
 import jwt from "jsonwebtoken";
-// sing up
+
+// ----------------- sing up---------------------
 export const singup = async (req, res, next) => {
   const { username, email, password } = req.body;
 
@@ -19,7 +20,8 @@ export const singup = async (req, res, next) => {
   }
 };
 
-// sing in
+// ------------------- sing in -------------------
+
 export const singin = async (req, res, next) => {
   const { email, password } = req.body;
   try {
@@ -29,8 +31,8 @@ export const singin = async (req, res, next) => {
     const validPass = bcryptjs.compareSync(password, validUser.password);
     if (!validPass) return next(errorHandler(401, "Password not credentials"));
     const token = jwt.sign({ _id: validUser._id }, process.env.JWT_SECRET);
-    // hashpass jenow na dekhajay tai 
-    // const {password: pass , ...rest} = validUser._doc;
+    // hashpass jenow na dekhajay tai
+    const { password: pass, ...rest } = validUser._doc;
     // using jtw DOC
     res
       .cookie(
@@ -38,16 +40,52 @@ export const singin = async (req, res, next) => {
         token,
         {
           httpOnly: true,
-          exp: Math.floor(Date.now() / 1000) + (60 * 60),
-
+          exp: Math.floor(Date.now() / 1000) + 60 * 60,
+          data: "foobar",
         },
-        "secret",
-        { expiresIn: "1h" }
+"secret",{ expiresIn: "1h" }
       )
       .status(200)
-      .json(validUser);
-      // .json(rest); not work ing 
+      // .json(validUser);
+      .json(rest);
   } catch (eror) {
     next(eror);
+  }
+};
+// ------------------- Google singin/singup -------------------
+
+export const googleSingin = async (req, res, next) => {
+  try {
+    const user = await User.findOne({ email: req.body.email });
+    if (user) {
+      const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
+      const { password: pass, ...rest } = user._doc;
+      res
+        .cookie('access_token', token, { httpOnly: true })
+        .status(200)
+        .json(rest);
+    } else {
+      const generatedPassword =
+        Math.random().toString(36).slice(-8) +
+        Math.random().toString(36).slice(-8);
+      const hashedPassword = bcryptjs.hashSync(generatedPassword, 10);
+      const newUser = new User({
+        username:
+          req.body.name.split(' ').join('').toLowerCase() +
+          Math.random().toString(36).slice(-4),
+        email: req.body.email,
+        password: hashedPassword,
+        avatar: req.body.photo,
+      });
+      await newUser.save();
+      const token = jwt.sign({ id: newUser._id }, process.env.JWT_SECRET);
+      const { password: pass, ...rest } = newUser._doc;
+      res
+        .cookie('access_token', token, { httpOnly: true })
+        .status(200)
+        .json(rest);
+    }
+  } catch (error) {
+    next(error);
   }
 };
